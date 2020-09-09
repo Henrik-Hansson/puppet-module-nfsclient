@@ -53,11 +53,20 @@ class nfsclient (
       $keytab_line       = 'GSSDARGS'
       $nfs_sysconf       = '/etc/default/nfs-common'
       $nfs_requires      = undef
-      $service           = 'rpc-gssd'
+      $service           = $::operatingsystemrelease ? {
+        /^14.04/   => undef,
+        default => 'rpc-gssd',
+      }
 
       # Puppet 3.x Incorrectly defaults to upstart for Ubuntu >= 16.x
-      Service {
-        provider => 'systemd',
+      if $::operatingsystemrelease != 14.04 {
+        Service {
+          provider => 'systemd',
+        }
+      } else {
+        Service {
+          provider => 'upstart',
+        }
       }
     }
     default: {
@@ -90,11 +99,13 @@ class nfsclient (
       }
     }
 
-    service { $service:
-      ensure    => 'running',
-      enable    => true,
-      subscribe => $service_subscribe,
-      require   => $nfs_requires,
+    if Service[$service] != undef {
+      service { $service:
+        ensure    => 'running',
+        enable    => true,
+        subscribe => $service_subscribe,
+        require   => $nfs_requires,
+      }
     }
 
     if "${::osfamily}-${::operatingsystemrelease}" =~ /^Suse-11/ {
